@@ -1,5 +1,7 @@
 module ApplicationHelper
-  def tiny_format(text)
-    h(text).gsub(/¥n/, "<br />.html.sage
+  def page_title
+    title = "Moring Glory"
+    title = @page_title + " - " + title if @page_title
+    title
   end
 end

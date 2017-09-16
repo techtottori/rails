@@ -7,6 +7,7 @@ before_action :set_message, only: :step7
   def step2
     render text: params[:controller] + "#" + params[:action]
   end
+
   def step3
     redirect_to action: "step4"
   end
@@ -60,6 +61,15 @@ before_action :set_message, only: :step7
 
   def step15
     @message = "ご機嫌いかが？彼女を愛しましょう。"
+  end
+
+  def step18
+    @zaiko = 10
+  end
+
+  def step19
+    @items = { "フライパン" => 2680, "ワイングラス" => 2550,
+                       "ペッパーミル" => 4515, "ピーラー" => 945 }
   end
   private
   def set_message
