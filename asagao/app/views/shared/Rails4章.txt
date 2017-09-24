@@ -77,3 +77,169 @@ SQLite3は、１つのデータベースを１つのファイルとして扱い�
  次の例は、membersテーブルから会員番号とユーザー名の一覧を出力するRakeタスクで、
  「bin/rake member_list」で実行できます。モデルを扱うときは、taskメソッドの引数を
  「タスク名: :environment」とします。「desc "List all members"」は、「rake -T」で表示される文字列です。
+
+ テーブルの作成
+ ここでは、データベースの中にテーブルを作成し、テーブルにカラム（=モデルの属性）を加える。
+
+ モデルの作成
+ membersテーブルにて会員情報を管理する。
+ モデルを作成するには、コントローラを作成した時のように、ターミナルから「bin/rails g」コマンドを実行します。「bin/rails　g model モデル名」でモデルを作成します。
+
+ テーブル名は、複数形のmembersとなる。
+ app/modelsフォルダの下には、「members.rb」のファイルができます。
+ Memberモデルでは、member.rbです。モデルに関するコードはこのファイルに記述します。作成したばかりのモデルクラスは中身が空になっていますが、ActiveRecord::Baseクラスを継承しているのでこれだけでも機能します。作成したばかりのモデルクラスは中身が空になっていますが、ActiveRecord::Baseクラスを継承しているのでこれだけでも機能します。
+
+ class Member < ActiveRecord::Base
+ end
+
+ モデル名の指定
+ モデル名を作成する時は、「bin/rails g model Member」のようにMemberを大文字で始めても構いません。また、member_imageと指定してもMemberImageとしても、MemberImageモデルができます。
+ただし、membersのように複数形にしてはいけません。Membersモデルができてしまいます。
+モデル名は単数形にするのが決まりです。
+
+マイグレーション
+データベースの中にMemberモデルに対応するmembersテーブルを作りましょう。
+
+マイグレーション
+Railsでは、データベースの作成や変更にマイグレーションという機能を使う、
+自動的にテーブルのカラムを定義できるだけでなく、開発途中でカラムを追加したり変更したりする作業も楽に行える。
+「bin/rails g model member」でモデルを作成すると、db/migrateフォルダの下にファイルができます。このファイルをマイグレーションスクリプトと呼びます。
+CreateMembersクラスにchangeメソッドがあります。changeメソッドの中のcreate_tableメソッドはテーブルの作成を行うもので、このメソッドに渡すブロックの中にカラムを記述します。
+
+カラムは、「t.カラムの型:カラム名」という形で記述します。例えば、nameという文字列型のカラムを追加するには、次のようにします。
+
+create_table :members do |t|
+  t.string :name
+  t.timestamps null: false
+end
+
+
+主キーとして使用するカラム名の指定
+create_tableメソッドでテーブルを作る時、主キーであるidカラムは自動的に追加されるので、ブロックの中で記述する必要はありません。もし主キーのカラム名をid以外のものにしたい場合は、次のようにprimary_keyオプションで指定します。
+
+create_table :members, primary_key: "member_id" do |t|
+
+そして、モデルクラスの定義の中で主キーのカラム名を指定します。
+
+class Member < ActiveRecord::Base
+  self.primary_key = "member_id"
+end
+
+カラムの型とRubyのクラス
+create_tableメソッドの「t.カラムの型」や後述するadd_columnメソッドには、表のようにマイグレーションの型を指定できます。integerやdecimal、string、textなど。
+また、DBMSの種類によっても違いがあります。
+
+membersテーブルの作成
+
+membersテーブルのためのマイグレーションスクリプト
+ユーザー名、本名、メールアドレスを文字列型、背番号と性別を整数型のカラムとして作ります。生年月日は日付型とします。論理値型の管理者フラグは、trueの場合は管理者、falseでは一般ユーザとします。
+
+「t.integer :number」や「t.string :name」に付いている「null: false」というオプションに注目してください。これは、空の値が保存されないように、カラムにNOT NULL制約をつける指定です。これにより、空の値を保存しようとすると、DBMSがエラーを出します。
+
+また、「t.integer :gender」に付いている「null: false, default: 0」のオプションは、「カラムにNOT NULL制約を付け、デフォルト値を0とする。」という指定です。これにより、gender属性に値を入れないで保存すると自動的に値が0になります。同様に、administrator属性のデフォルト値をfalseにしています。
+
+created_atカラムとupdate_atカラム
+上記のマイグレーションスクリプトでは、t.timestampsによってcreate_atとupdate_atという時刻型のカラムが２つできます。Railsは、レコードを作成した時にcreated_atカラムに自動的にその時刻を入れます。また、レコードを更新した時にはupdate_atカラムに時刻を入れます。
+この２つのカラムを作っておけば、レコードの作成と更新時刻を調べられるようになります。
+
+typeというカラム名に注意
+原則としてカラム名にはtypeという名前はつけられません。typeカラムはRailsの「単一テーブル継承」という機能のために使われます。種類を表すカラムを作りたい時は、kindのように別の名前にするか、member_typeのような名前を使ってください。
+
+マイグレーションの詳細
+紹介ですので、asagaoでは実行しないでください。
+
+カラムの追加
+bin/rails g migration ModifyMembersを実行すれば、db/migrateフォルダの下にファイルが作成されます。
+
+新しいマイグレーションスクリプトのModifyMembersクラスには、changeメソッドができます。例えば、membersテーブルに電話番号を表すphoneカラムを追加したい時は、changeメソッドの中にadd_columnメソッドを記述します。
+
+class ModifyMembers < ActiveRecord::Migration
+  def change
+    add_column :members, :phone, :string
+  end
+end
+
+add_columnメソッドの引数には、テーブル名、追加するカラム名、カラムの型を順に指定します。「bin/rake db: migrate」を実行すると、新しいバージョンが読み込まれ、phoneカラムが追加されます。
+
+マイグレーションのバージョン
+マイグレーションスクリプトのファイル名の「年月日時分秒」は、マイグレーションのバージョンを表している。
+
+古いバージョンに戻したい時は、次のバージョンを指定します。
+bin/rake db:migrate VERSION=20150108014703
+
+マイグレーションのバージョンは、データベース内のschema_migrationsテーブルに管理されています。自動生成されます。
+Rakeでdb:migrate:statusタスクを実行すると、現在のマイグレーションのバージョンを確認できます。up印がついているのが実行済みのマイグレーションです。
+
+データベース定義を古いバージョンに戻すには、db:rollbackタスクも使えます。次のコマンドは、直前に行われたマイグレーションを１つだけ取り消します。
+
+bin/rake db:rollback STEP=1
+ステップ数で何個戻るか変えられます。
+
+なお、changeメソッド内にcreate_tableメソッドがあれば、データベース定義のバージョンを下げる時にテーブルが削除されます。
+
+カラムの変更と削除
+add_column
+rename_column
+change_column
+remove_column
+
+次のマイグレーションスクリプト
+
+def change
+  rename_column :members, :name, :nickname
+end
+end
+
+change_columnメソッドとremove_columnメソッドには、changeメソッドの中で使用するとマイグレーションのロールバックができないという制限があります。この２つのメソッドをchangeメソッドに入れてロールバックするとエラーになります。
+changeメソッドではできないロールバックを行いたい時は、代わりにupメソッドとdownメソッドの２つを記述してください。upメソッドにマイグレーションを進める処理を書き、downメソッドに取り消す処理を書けば、ロールバックができます。
+
+class ModifyMembers < ActiveRecord::Migration
+  def up
+    rename_column :members, :name, :nickname
+    change_column :members, :gender, :integer, null: false, default: 1
+  end
+
+  def down
+    change_column :members, :gender, :integer, null: false, default: 0
+    rename_column :members, :nickname, :name
+  end
+end
+
+インデックス
+カラムには、インデックスを加えることができます。インデックスとは索引のための情報です。カラムにインデックスを加えると、特定のカラムを使った検索を高速化できます。ただし、テーブルとは別に索引情報を持つことになるので、メモリがその分消費されます。
+Railsのマイグレーションスクリプトでインデックスを設定するには、add_indexメソッドを使います。省略可能なオプションとしてuniqueとnameを指定できます。インデックス名を省略すると、「テーブル名_カラム名_index」が名前となります。
+
+add_index :members, :name, unique: true, name: 'name_index'
+
+インデックスを削除するには、remove_indexメソッドを使います。columnオプションでカラム名を指定するか、nameオプションでインデックス名を指定します。
+
+remove_index :members, column: 'name'
+remove_index :members, name: 'name_index'
+
+add_indexやremove_indexは、change up downの各メソッド内に記述できます。
+
+インデックスは規模が大きくなると必要。
+
+開発中と本番でのマイグレーション
+開発中にテーブルのカラム定義を変更するには、
+
+新しいマイグレーションスクリプトを追加し、マイグレーションを行う。
+既存のマイグレーションスクリプトを書き換え、マイグレーションを最初からやり直す。
+
+Rakeのdb:migrate:resetタスクを使う。
+
+リリース後のマイグレーションは慎重に
+
+アプリケーションはリリースした後には簡単に変更できません。
+
+データの保存
+データベースができ、データベースにテーブルが作成できました。しかし、テーブルの中に実際のレコードがないと、モデルの学習もアプリケーションの開発もできません。テーブルに開発用のデータを入れてみましょう。
+
+レコードの作成と更新
+
+Railsコンソール
+モデルの機能を簡単にチェックするには、サーバーを起動せずにRailsコンソールを使うのが便利です。ターミナルで「bin/rails c 」を実行。
+
+bin/rails c
+
+Rubyのコードを
