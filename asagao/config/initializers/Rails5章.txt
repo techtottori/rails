@@ -1,0 +1,165 @@
+リソースを扱うコントローラ
+RailsのRESTの原則に従って、サイトの会員情報をリソースとして扱うコントローラの作成を始めます。
+
+リソースベースのルーティングについて学ぶ。
+リソースを表すURLのパスの書き方について学びます。
+会員情報を扱うMembersControllerを作成し、会員の一覧ページと詳細情報のページを実装します。
+7つのアクションの名前と機能を覚えます。
+
+RESTとルーティング
+REST(Representational State Transfer)とは、ネットワーク上に置かれたリソースを操作するアプリケーションのスタイルです。RailsのREST機能の中心は、リソースベースのルーティングです。
+
+RESTとリソース
+Railsには、RESTに基づいた作法でアプリを作成します。RESTの機能を利用すれば、Railsの原則「Don't Repeat Yourself」や「設定より規約」を推し進めることができ、アプリケーションの開発や保守がより簡単になります。
+Railsにおけるリソースとは、コントローラが扱う対象に名前をつけたものです。リソース名を設定するには、config/routes.rbにresourcesメソッドを1行記述するだけです。引数はリソース名の複数形を指定します。
+
+resources :members
+
+これだけで、MembersControllerに対して後術の7つのアクションのルーティングが設定できます。
+これをRESTフルなルーティング、または、リソースベースのルーティングと呼びます。リソースを扱うコントローラは、MembersControllerのように「リソース名の複数形 + Controller」という名前にするのが基本
+
+モデルではないリソース
+resourcesメソッドに指定するリソース名は大抵はモデル名ですが、モデルでなくても大丈夫。
+resourcesメソッドは、リソース名に対応したコントローラに対して、7つのアクションのルーティングを設定するだけです。
+
+リソースを扱うコントローラ
+リソースを扱うコントローラでは、リソースベースのルーティングのパターンに従い、決まった名前のアクションを7つ用意します。これによって、モデルを操作するコントローラは一貫したスタイルで作れば良いことになります。
+
+index
+new
+create
+show
+edit
+update
+destroy
+
+パスとHTTPメソッド
+7つのアクションを呼び出すには、次ページの表のパスとHTTPメソッドの組み合わせを使います。リソースの集合を扱うindexアクションとcreateアクションは同じURLになり、HTTPメソッドで区別されます。個別のリソースを扱うshow、update、destroyも同じURLになり、HTTPメソッドで区別されます。show、edit、update、destroy、の各アクションを呼ぶ時は、members/123のようにモデルの主キーを示すidパラメータが必須です。このidパラメータは、コントローラの中でparams[:id]で取り出せます。
+
+PATCHメソッドとDELETEメソッド
+HTMLの仕様では、フォームのmethod属性にはGETとPOSTしか指定できません。このため、リソースベースのルーティングを使った時でも、PATCHメソッドとDELETEメソッドは実際のリクエストではPOSTメソッドで送信されます。
+Railsは隠しパラメータ_methodを使い、PATCHメソッドでは_method=patch、DELETEメソッドでは_method=deleteをリクエストに加えることでメソッドの種類を懐疑的に表します。
+PUTメソッドとPATCHメソッド
+
+Rails3まではリソースの更新(updateアクション)にはPUTメソッドが使われていましたが、Rails4からはPATCHメソッドに変わりました。「リソースの置き換え」を意味するPUTメソッドよりも、「リソースの一部変更」という意味のPATCHメソッドの方がふさわしいという考えからです。
+Rails4でもPUTメソッドを使えますので、Rails3で作ったアプリケーションをRails4に移す時は、PUTをPATCHに修正しなくても動きます。
+
+アクションの追加
+7つのアクション以外にも、リソースベースの流０ティングでは任意のアクションを追加できます。アクションを追加するには、resourcesメソッドにブロックを渡し、ブロックの中で「HTTPメソッドを表すメソッド　アクション名」を記述します。
+その際、会員一覧のようにリソースの集合を表すアクションは、collectionメソッドのブロックで囲みます。会員の状態変更のように個別のリソースを扱うアクションは、memberメソッドのブロックで囲みます。
+
+resources :members do
+  collection { get "search" }
+  member { patch "suspend", "restore" }
+end
+
+追加されたアクションを呼び出すパスとHTTPメソッドは次の通り。searchアクションはリソースの集合を扱うので、idパラメータはありません。suspendアクションとrestoreアクションは個別のリソースを扱うので、idパラメータが必須になります。
+
+アクションを追加するには、もう1つ書き方があります。collectionとmemberをメソッドではなくonオプションで指定する方法です。
+
+resources :members do
+  get "search", on: collection
+  put "suspend", "restore", on: :member
+end
+
+逆に、7つのアクションのうち、特定のアクションを使わない時は、resourcesメソッドにonlyオプションやexceptオプションを渡します。次の例では、MembersControllerのindexアクションとshowアクションのルーティングだけを設定します。
+
+resources :members, only: [:index, :show]
+次の例では、destroyを除く6つのアクションのルーティングを設定します。
+
+resources :members, except: [destroy]
+
+リソースとパスの指定
+リソースベースのルーティングを設定すると、link_toやredirect_toなどのメソッドでシンプルパスの指定ができます。
+
+パスを返すメソッド
+resourcesメソッドでリソースを指定すると、コントローラのアクションを表すパスを「リソース名_path」の形のメソッドで取得できるようになります。「resources :members」では、次のメソッドが使えるようになります。
+
+リソースの集合を扱うindexとcreateでは、members_pathのようにmemberが複数形になることに注意してください。個別のリソースを扱うshowなどでは単数形です。newは集合でも個別でもありませんが、単数形です。
+　パスを返すメソッドは、コントローラでもビューでも使えます。ビューの中で、会員一覧のページへのリンクは次のように作れます。
+
+link_to "会員一覧", members_path
+
+member_pathとedit_member_pathのように、個別のリソースを扱うアクションへのパスを得るには、引数にモデルオブジェクトを渡します。すると、モデルのidがidパラメータになります。
+例えば、会員の詳細情報ページ（showアクション）へのリンクは次のようになります。
+
+link_to　@member.name, member_path(@member)
+
+members_pathとmember_pathが返すパスは複数のアクションを表しますが、アクションの区別はHTTPメソッドで行います。例えば、削除のためのリンクでmethodオプションにDELETEメソッドを指定すれば、destroyアクションへのリンクになります。
+
+link_to "削除", member_path(@member), method: :delete
+
+前述のようにsearch、suspend、restoreの各アクションを追加した時は、次のメソッドがパスを返すようになります。リソースの集合を扱うsearchアクションでは、search_members_pathのようにmemberが複数形になります。
+
+「リソース名_url」メソッド
+上記の「リソース名_path」メソッドの_pathの部分を_urlに変えると、http://で始まるURLを返すメソッドになります。次のリンクは、aタグのhref属性が「href="http://localhost:3000/members"」になります。
+
+link_to "会員一覧"、　members_url
+
+オブジェクトでパスを表す
+さらに簡略化したパスの表現を見てみましょう。link_toメソッドの第2引数にモデルオブジェクトを渡すと「/members/123」のようにmember_pathメソッドと同じパスに変換されます。
+
+link_to　member.name, @member
+link_to　"削除", @member, method: :delete
+
+editアクションやsuspendアクションのように、個別のリソースを扱うアクションは、配列を使って[: アクション名, オブジェクト]で表せます。次の例は「members/123/edit」や「members/123/suspend」のようなパスになります。
+
+link_to "編集", [:edit, @member]
+link_to "停止",[:suspend, @member], method: patch
+
+indexアクションやnewアクションのようにidパラメータを取らないでアクションでは、前述の
+
+link_to "会員一覧”,　:members
+link_to "新規追加",　:new_member
+以上のモデルオブジェクト、配列、シンボルで表したパスは、コントローラのredirect_toの引数としても使えます。
+
+5.2　7つのアクション
+リソースを扱うコントローラを実際に作成する。
+
+bin/rails g controller members
+
+resourcesメソッドでリソースベースのルーティング
+
+会員の一覧ページの作成
+7つのアクションのうち、会員の一覧を表示するindexアクションとそのテンプレートを実装しましょう。
+
+続いて、MembersControllerのindexアクションを実装します。クエリーメソッドのorderを使ってリレーションオブジェクトをインスタンス変数@membersに取り出します。orderメソッドによって並びは背番号順になります。
+
+app/viewsフォルダの下にmembersフォルダを作成し、その中にindexアクション用のテンプレートindex.html.erbを次のように作成します。
+
+１行目では、HTMLタイトル生成に使われるインスタンス変数@page_titleをセットしています。
+@members.eachのブロックでMemberモデルもオブジェクトmemberを取り出し、背番号、ユーザを取り出し、背番号、ユーザ名、氏名を表示します。
+４行目の「if @members.present?」会員一覧が会員一覧が空かどうか調べるもので、空の場合は、会員情報がありません。と表示します。
+まだ、indexアクションは完成していませんが、この段階で表示を確認してみましょう。bin/rails sコマンドでサーバーを起動し、ブラウザでトップページを開き、メニュー会員名簿をクリックすれば、会員の一覧が表示されます。
+
+
+
+会員の詳細ページ
+会員情報の詳細、つまり1つのレコードの各カラムの値を表示するページを作りましょう。
+showアクションでは、findメソッドにidパラメータを渡します。
+
+インスタンス変数とNoMethodError
+コントローラの中では、インスタンス変数@memberの綴りを間違えるとNomethodError(メソッドがない)というエラーが示されます。初期化されていないインスタンス変数の値はnilになり、nilにはnumberなどのメソッドがないためです。
+エラーの表示「メソッドがない」でも、その原因はインスタンス変数のスペルミス、ということがよくある。
+
+app/views/membersフォルダの下にテンプレートshow.html.erbを作成します。HTMLのテーブル内にレコードのカラム、つまりモデルオブジェクト@membersの属性を並べます。
+
+tryメソッド
+nilがある場合に備えた書き方です。そのままstrftimeメソッドを呼び出すと、誕生日がない場合には例外NoMethodErrorが発生します。tryメソッドを使えば、簡潔な書き方で例外の発生を防げます。
+ tryメソッドは、Active SupportがRubyの機能を拡張したもので、オブジェクトがnilでなければ引数のメソッドで実行し、nilであればnilを返します。実行するメソッドの引数は、tryメソッドの第2引数以降に指定します。
+
+属性？メソッド
+show.html.erbの一番下で使っている@member.administrator?という?付きのメソッドなadministrator属性がtrueかfalseか調べるもの。@member.administratorとしても同じですが、?をつけることでtrueかfalseを調べることを明示できます。カラム名に?を加えた名前を持つメソッドは、テーブルにそのカラムがあれば使えるようになるメソッドです。Memberモデルの場合は、number?メソッドやname?メソッドも使えます。値がnil、false、空文字列、空白文字だけからなる文字列の場合はfalseを返し、そうでなければtrueを返します。present?メソッドとは違い、値が数値0の場合はfalseを返します。
+
+RESTとは、リソースという概念を中心にしてウェブアプリケーションを組み立てる考え方です。Railsのリソースは、コントローラが扱う対象に名前をつけたものです。
+
+リソース名は、routes.rbでresourcesメソッドを使って設定します。リソース名を設定すると、リソースを扱うコントローラに対して、リソースベースのルーティングが作られます。
+
+リソースベースのルーティングでは、index,show,new,edit,create,update,destroyの7つのアクションが基本となります。
+
+リソース名を設定すると、「まるまる_path」という形のメソッドでURLのパスを生成できるようになります。
+
+リソースの一覧ページはindexアクション、詳細情報のページはshowアクションで実装します。
+
+
+
