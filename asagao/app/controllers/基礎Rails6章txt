@@ -102,4 +102,370 @@ value属性の値を設定しないと、自動的にオンの値は「1」、�
 
 <%= form.check_box :administrator %> 管理者
 
-最初からチェックがついた状態にしたい時は、「@me」
+最初からチェックがついた状態にしたい時は、「@member.administrator = true」のようにコントローラでモデルオブジェクトに値を入れておきます。
+
+ラジオボタン
+ラジオボタンは、radio_buttonメソッドで記述します。第2引数には、ラジオボタンの値を指定します。最初からチェックがついた状態にしたい時は、「@member.gender = 1」のようにコントローラで値を入れておきます。
+
+<%= form.radio_button :gender, 0 %>　男
+<%= form.radio_button :gender, 1 %>　女
+
+選択リスト
+プルダウンメニューによる選択リストは、selectメソッドで記述します。第2引数はには、選択しを配列で指定します。第2引数には、選択肢を配列で指定します
+
+日付と時刻の選択
+日付や時刻を選択できるように、自動的に複数のリストを並べる機能もありまうs。日付の選択にはdate_selectメソッド、日付と時刻の選択にはdatetime_selectメソッドを使います。この2つのメソッドを用いると、送信されたデータをモデルオブジェクトにそのまま格納するだけで、自動的に日付型や時刻型の値として保存できます。
+オプションとして最初の年(start_year)、最後の年(end_year)、月の表示を数字にするかどうか
+(use_month_numbers)を指定できます。
+
+日付に「年月日」をつけるには
+現在のRailsでは、date_selectメソッドやdatetime_selectメソッドで「年月日」のように日本語らしい表示にする標準的な方法はありません。次の例は、少々かっこ悪い方法ですが、selectタグの後ろに年月日をつけるヘルパーメソッドです。
+
+def add_date_unit(str)
+	if str =~ /(<select.+?<¥/select>).+?(<select.+?<|/select>).+ ?(<select. + ?<¥/select>)/m
+	($1 + "年¥n" + $2 + "月¥n" + $3 + "日¥n" + $').html_safe
+  else
+  	str
+  end
+end
+
+<%= add_date_unit(form.date_select :birthday,
+		start_year: 1940, end_year:  Time.now.year,
+		use_month_numbers: true) %>
+
+ファイルのアップロード
+	ファイルのアップロード用の部品は,file_fieldメソッドで記述します。ファイルのアップロードを行う時は、form_forメソッドのオプションに「multipart: true」の指定を加えなければなりません。ファイルのアップロードの実際の例は、9章を参照。
+
+	<%= form.file_field :upload_file %>
+
+送信ボタン
+フォームの送信ボタンは、submitメソッドで作ります。ボタンの上の文字を変えたい時は、引数に指定します。
+
+一般的なボタンを作るにはbuttonメソッドを利用します。引数でボタンの上の文字を指定し、typeオプションでtype属性の値を指定します。type属性の値は"submit","reset","button"のいずれかで、デフォルト値は"submit"です。
+
+ラベル
+　入力欄に対応するラベルを作成するには、labelメソッドを使います。引数には、対応する入力欄の属性名を指定します。第2引数にはラベルのテキストを指定できます。
+
+日付とラジオボタンのラベル
+text_fieldメソッドの引数を:nameとすると、inputタグのid属性がid="member_name"となります。labelメソッドの引数を:nameとすると、labelタグのfor属性がfor="member_name"となるので、ラベルと入力欄を関連づけられます。先に記述したテンプレート_form.html.erbでは、こうしたケースから外れる入力欄があるので、工夫を加えています。
+誕生日用のdate_selectメソッドは、3つのselectタグになります。labelメソッドにはオプション「for: "member_birthday_li"」をつけてfor属性の値を変え、１番目のselectタグを指すようにしています。
+
+scaffoldの利用
+Railsには、scaffoldというモデルとコントローラを簡単に作成するための仕組みが用意されています。
+Memberモデルとマイグレーションスクリプト、MembersControllerとビューが一気に出来上がります。number:integer name:stringによって、マイグレーションスクリプトには整数型のnumberと文字列型のnameカラムが自動的に追加されます。
+
+bin/rails g scaffold Member number:integer
+name:string
+
+
+6.2　レコードの作成、更新、削除
+ここでは、create、update、destroyの各アクションを実装し、レコードの作成、更新、削除を行います。
+
+作成と更新の流れ
+データベースの基本操作を行うには、Chapter5で紹介した7つのアクションを使います。
+データベースのレコードの作成と更新には、フォームを表示するアクションとレコードの保存を行うアクションを組み合わせる。
+
+会員の新規登録と更新
+
+ストロング・パラメータの無効化
+
+config.action_controller.permit_all_parameters = true
+
+ストロング・パラメータとは、ブラウザから送信されるパラメータに制限をかけて、セキュリティを向上させる機能です。
+
+30行目のnewメソッドで、フォームから送られたパラメータを使ってモデルオブジェクト@memberを作成します。31行目のsaveメソッドでデータベースのレコードに保存します。保存に成功した時は、saveメソッドがtrueを返します。成功した時は、redirect_toメソッドでオブジェクト@memberが表すパスにリダイレクトします。@memberのidが123であれば、「/members/123」にリダイレクトします。
+「notice: "会員情報を登録しました"」は、フラッシュに値を設定するオプションです。
+エラーによってsaceメソッドがfalseを返した時は、renderメソッドでnewアクションのテンプレートを表示します。
+
+Create Memberボタンを押すと、createアクションが呼び出され、レコードが保存されて、showアクションにリダイレクトします。
+
+updateアクション
+
+findメソッドでレコードを取り出し、assign_attributesメソッドでフォームからのデータをセットします。createアクションと同様に、saveメソッドでレコードを保存します。保存に成功したらshowアクションにリダイレクトし、失敗したらeditアクションのテンプレートを表示します。
+会員一覧ページで、名前の横の編集をクリックしてください。
+
+createアクションとupdateアクションの内容は、どんなモデルでも上記の書き方が基本です。
+
+会員を削除するdestroyアクション
+findメソッドでレコードを取り出し、destroyメソッドで削除します。フラッシュにメッセージを入れて、indexアクションにリダイレクトします。
+
+これにより、次のようなHTMLが生成されます。data-method属性が付いているリンクをクリックすると、RailsのJavascriptが見えないフォームを作成し、DELETEメソッドで送信します。また、data-confilm属性の付いているリンクは、Javascriptによってメッセージが表示されます。
+
+csrf_meta_tagsメソッド
+<%= Javascripty_include_tag 'application', 'data-turbolinks-track' => true %>
+<%= csrf_meta_tags %>
+
+1文目によってRailsのJavaScriptが取り込まれます。
+csrf_meta_tagsメソッドは、 CSRF対策のauthenticity_tokenをHTMLに埋め込むものです。methodオプションが"patch"やdeleteのリンクがあると、RailsのJavaScriptはこのauthenticity_tokenを使って見えないフォームを作成します。
+
+削除フラグを使う方法
+モデルのdestroyメソッドはSQLのDELETE文を実行して、テーブルからレコードを完全に削除してしまいます。通常はこれで良いのですが、レコードを残したまま「削除状態」にしておきたいケースもあります。例えば、レコードの記録を残しておきたい時や、退会させたユーザーを復活させたい時などです。
+そうした時には、deletedという名前の論理値型のカラムをテーブルに追加して、値がtrueなら削除状態とみなすことにします。
+
+t.boolean :deleted, null:false, default: false
+
+Memberモデルでは、destroyメソッドを上書きして、削除する代わりにdeletedカラムをtrueに変えます。
+
+def destroy
+	self.deleted = true
+	save
+end
+
+また、Memberモデルでは、削除されていないユーザーを表すスコープを作成します。
+
+scope :active, where(deleted: false)
+
+MembersControllerでは、レコードを取り出す時に、activeスコープをつけます。
+
+@members = Member.active.order("number")
+@member = Member.active.find(params[:id])
+
+バリデーション
+ここではモデル機能のうち、バリデーションを取り上げます。
+ユーザから渡されたデータをデータベースに保存する時に必ず行う、重要なステップです。
+
+バリデーションとエラー情報
+テーブルのレコードを作成・更新する時には「フォームから送られた値を調べ、値の式や範囲が間違っていたら適切なエラーメッセージを出す」という処理を必ず行います。この定型的な処理を簡単にこなすのが、Railsのモデルに用意されたバリデーションの検証です。
+
+モデルオブジェクトのsaveメソッドを呼び出すと、saveメソッドはバリデーションを実行します。バリデーションに引っかかると、エラーオブジェクトにエラー情報が格納され、saveメソッドはfalseを返します。
+バリデーションを設定するには、モデルクラス内でvalidatesメソッドを使います。次のようにvalidatesメソッドをMemberモデルに加えて試して見ましょう。これは、背番号（number）が空かどうかをチェックします。
+
+class Member < ActiveRecord::Base
+	validates :number, presence: true
+
+valid?メソッドとinvalid?メソッド
+saveメソッドを使わずにバリデーションを行うには、valid?メソッドかinvalid?メソッドを使います。チェックに引っかかればvalid_メソッドはfalseを返し、invalid?メソッドはtrueを返します。
+
+member.number = nil
+member.valid?
+member.invalid?
+
+validatesメソッドの書き方
+validatesメソッドの引数には、シンボルでモデルの属性名を指定し、そのあとにハッシュで
+バリデーションの種類: trueを並べれば、その種類のバリデーションが行われます。属性名もバリデーションの種類も複数並べられます。
+
+validates :number, :name, presence: true
+
+「バリデーションの種類: { オプション: オプションの値 }」とすると、バリデーションごとにオプションを指定できます。
+
+validates :name, length: { maximum: 20 }
+バリデーションの種類とそのオプションについて
+
+会員情報の検証
+Memberモデルにバリデーションの機能を加えていきましょう。会員の背番号、ユーザー名、誌名、メールアドレスでバリデーションを行います。
+まず、背番号には「空を禁止、1以上100未満の整数、会員の間で重複を禁止」という制限をつけることにして、次のようにvalidatesメソッドを記述します。
+
+presenceバリデーションの働き
+presenceで「値が空」と見なされるのは、nil、false、空文字列です。空白文字だけを並べた値もエラーにします。これは、blank?メソッドがtrueを返す場合と同じです。なお、全角空白文字として扱われます。
+
+メールアドレスのチェック
+バリデーションが複雑で、validatesメソッドでは書き表しにくい時は、validateメソッドを使います。メソッド名にsがつかない。
+
+validateメソッドの引数には、バリデーション用のメソッド名を指定します。バリデーション用のメソッドcheck_emailはプライベートメソッドとして定義します。
+メールアドレスが空でなければ、well_formed_as_email_addressメソッドで書式をチェックし、正しいアドレスでなければ、エラーオブジェクトにaddメソッドでエラーを加えます。
+addメソッドの第一引数は属性名、第二引数はメッセージです。メッセージをシンボルにすると、ロケールテキスト「errors.messages.第2引数」がメッセージとなります。
+
+well_formed_as_email_addressメソッドは、筆者が用意したEmailAddressCheckerモジュールのものです。まずappフォルダの下にlibフォルダを作成してください。
+
+app/libフォルダ
+初期状態でappフォルダの下にはassets、controllers、helpers、mailers、models、viewsという６個のサブフォルダがあり、それぞれ役割が決まっています。これらのサブフォルダに分類しにくいクラスやモジュールを作りたい場合は、適宜libやworkersなどの名前でサブフォルダを作って配置できます。
+
+MemberモデルにEmailAddressCheckerをミックスインすれば、well_formed_as_email_addressメソッドが使えるようになります。
+
+エラーメッセージの表示
+バリデーションを設定しただけでは、保存に失敗した時のメッセージは表示されません。テンプレートにエラーメッセージの表示を加えましょう。
+エラーメッセージ用専用のテンプレートを用意することにします。app/views/sharedフォルダの下に部分テンプレート_errors.html.erbを作成し、次のように記述してください。エラーオブジェクトのfull_messagesメソッドは、「エラーを出した属性名＋メッセージ」の配列を返しますので、それをHTMLのリストにします。
+
+会員情報のフォームを表示するテンプレート_form.html.erbの先頭に、この_errors.html.erbを埋め込みます。
+
+入力欄を囲むタグ
+モデルオブジェクトにエラーがある時は、エラーを起こした入力欄は、class属性が"field_with_errors"のdivタグで囲まれます。
+
+<div class="field_with_errors"><input id ="member_name"
+	name="member[name]" size="30" type="text" value="" /></div>
+CSSでdiv.field_with_errorsにデザインを記述すれば、エラーを起こした入力欄に色をつけられます。
+
+div.field_with_errors {
+	background-color: #fcc;
+	padding: 2px:
+}
+
+
+エラーメッセージの順番
+Number is not number や Name can't be blank などのエラーメッセージの順番は、バリデーションを実行した順番になります。これは、モデルクラスの中でvalidatesメソッドやvalidateメソッドを並べた順番です。フォームの入力欄の並びと同じ順んでエラーを表示したい時は、validatesメソッドやvalidateメソッドの並べ方を調整してください。
+
+
+メッセージの日本語化
+Railsの国際化機能を使うと、日本語や英語など様々な言語のテキストをブラウザ上に表示できます。
+
+Railsの国際化昨日
+国際化とはi18nと呼ばれるものです。複数の言語に合わせてテキストを切り替えたり、地域ごとに日付や数値の書式を切り替えたりする機能のことです。Railsの国際化機能は、単純なものです。I18nというクラスにロケールを設定し、ロケールに合わせてYAML形式のロケールテキストから文字列を読み込んで表示します。
+
+I18n.locale = "ja"
+
+この指定がなければ、デフォルトのロケールにenが使われます。
+
+i18nとL10n
+国際化と似た概念に地域化があります。英語でLocalization,略してL10nです。
+
+エラーメッセージの日本語化
+Railsの国際化機能を使って、会員情報のエラーメッセージとモデルの属性名を日本語化しましょう。
+Gemパッケージrails-i18n
+レコードの保存に失敗した時に表示されるcan't be blankの部分を日本語化しましょう。
+これは,Gemパッケージrails-i18nを使うと楽にできます。rails-i18nは、様々な言語のためのエラーメッセージや日付の書式などを集めたものです。
+
+コマンドプロンプトでBundlerを実行して、rails-i18nをインストールします。
+
+これにより、モデルは日本語用のロケールテキストからエラーメッセージを読み込むようになります。ロケールテキストの内容を確認してみましょう。
+
+
+
+
+モデルの属性名の日本語化
+rails-i18nによって、エラーメッセージ「Name can't be blank」の「can't be blank」の部分は、を入力してくださいのように日本語化できましたが、Nameの部分はまだです。自分でロケールテキストを記述して、日本語のテキストを用意する必要があります。
+Railsアプリケーションのconfigフォルダの下にlocalesフォルダがあります。ここがロケールテキストを置く場所です。
+
+YAML
+Railsでは、ロケールテキストの記述にYAMLを使っています。YAMLとは、データ形式またはファイル形式の1つで、配列やハッシュのようなデータを人間に読みやすい形で記述できるようにしたものです。YAMLは「YAML Ain't Markup Language」YAMLはマークアップ言語ではない。
+とXMLに対する批判の気持ちが込められているかもしれません。
+
+require "yaml"
+
+animals = YAML.load(File.new("animals.yml"))
+animals.each  {  |animal| puts animal  }
+
+YAMLでは、ハッシュを表すこともできます。「キー: 値」を各行に並べれば、それがハッシュのキーと値になります。
+次のページのYAMLは、2つの要素からなるハッシュを荒らし、ハッシュの中にハッシュを入れて会員のデータを表しています。配列やハッシュの中にさらに配列やハッシュを入れるときは、半角空白でインデントします。
+
+member1:
+	number:  11
+	name: Taro
+member2:
+	number:  12
+	name:  Hanako
+
+members.ymlとファイル名で保存すると、次のようにハッシュを取り出せます。
+
+require  "yaml"
+
+members = YAML.load(File.new("members.yml"))
+members.each do |key, val|
+	puts "#{val['number']}\t#{val['name']}"
+end
+
+Railsでは、ロケールテキストの他に、データベースの設定(database.yml)とテスト用のフィクスチャファイルにYAMLを使っています。
+
+国際化機能を使い方
+ここでは、Railsの国際化機能の一般的な使い方
+
+テキスト
+日本語用のテキストを用意するには、ロケールテキストの中でja:の下にネストしたハッシュを記述します。
+
+ja:
+	messages:
+		hello:	"こんにちは"
+
+Railsアプリケーションの中でロケールテキストを読みだすには、I19nクラスのtranslateメソッドを使います。tメソッドには、ハッシュのキーをピリオドでつないだ文字列を指定します。ロケールの設定が「ja」の場合はja:の下のテキストが使われ、「en」の場合はen:の下のテキストが使われます。
+
+s = I18n.t("messages.hello")
+
+コントローラやテンプレートの中では、I18nをつけずにtメソッドが利用できます。
+
+<%= t("messages.hello") %>
+
+ロケールテキストで%{ ~ }を使うと、テキストの中に値を埋め込めるようになります。次は、挨拶の中に名前を埋め込む例です。
+
+ja:
+	messages:
+		hello: "%{name}さん、こんにちは"
+
+tメソッドの引数には次のようにハッシュを追加すれば、「Taroさん、こんにちは」というテキストになります。
+
+<%= t("messages.hello", name: "Taro") %>
+
+ハッシュの上書きに注意
+1つのロケールテキストには、ja:は1つしか書けません。次のように2つ書くと、下のハッシュ"ja"が上のハッシュ"ja"を消して上書きしてしまいます。
+
+ja:
+	activerecord:
+ja:
+	messages:
+ロケールテキストを記述する時は、ハッシュが上書きされないようにしてください。ただし、複数のロケールテキストを使うときは、ファイルごとにja:が必要です。
+
+日付と時刻
+日付や時刻の表記は、国ごとで違います。日本語だと2015/01/31、アメリカではJanuary 31, 2015という表記になります。
+
+s = I18n.l(Time.now)
+
+tメソッドと同様に、コントローラやテンプレートの中では、I18nをつけずにlメソッドが利用できます。
+
+<%= l(Time.now) %>
+
+lメソッドの第2引数には、ハッシュでformatオプションを指定できます。短めの書式を使うときは:shortを、長めなら:longを指定します。
+<%= l(Time.now, format: :long) %>
+
+lメソッドで使われる日付と時刻の書式は、rails-i18nのja.ymlの中で設定されています。
+
+ja:
+	date:
+
+		formats:
+			default: "%Y/%m/%d"
+			long: "%Y年%m%d日(%a)"
+			short: "%m/%d"
+
+	time:
+		am:  午前
+		formats:
+			default: "%Y/%m/%d %H: %M: %S"
+			long: "%Y年%m%d日(%a)"
+			short: "%m/%d"
+		pm:　午後
+
+自分で新しい書式を追加したり、rails-i18nの書式を上書きsたりしたいときは、アプリケーションのロケールテキストに書式を記述してください。
+
+ja:
+	中略
+	time:
+		formats:
+			medium:
+
+formatオプションで:mediumを指定すると
+
+<%= l(Time.now, format: :medium) %>
+
+日本語以外の言語に対応するには
+
+Railsの国際化機能を使えば、英語ユーザーには自動的に英語の画面を表示し、日本語ユーザーには日本語の画面を表示すると、言ったことができます。
+
+ユーザーごとにロケールを切り替える方法はいろいろ考えられます。HTTPのAccept-Languageヘッダーを調べる、/ja/membersのようにパスにロケールを含める、会員のアカウント情報で言語を選んでもらう、などです。ここでは、クッキーにロケール情報を入れておく方法をざっと紹介します。
+まず、ロケールを機r帰るアクションlocaleを作ります。routes.rbに次の設定を加えます。
+
+get "locale" => "top#locale", as: "locale"
+
+TopControllerにlocaleアクションを記述し、localeパラメータの値をクッキーに入れるようにします。クッキーを設定したら、トップページに戻ります。
+
+def locale
+	if %w(ja en).include?(params[:locale])
+	cookies[:locale] = params[:locale]
+	redirect_to :root
+   end
+end
+
+ApplicationControllerにbefore_actionコールバックを設定し、全てのアクションが実行される前にクッキーからロケールを取り出して、I18n.localeに設定します。
+
+before_action	:set_locale
+
+private
+def  set_locale
+	if %w(ja en).include?(cookies[:locale])
+		I18n.locale = cookies[:locale]
+	end
+end
+
+<%= link_to ”日本語",
+		locale_path(locale: "ja" %>
+<%= link_to ”英語",
+		locale_path(locale: "en" %>
+
+ja.ymlで記述したのと同じようにen.ymlのen:の下に英語でモデルの属性名を記述すれば、フォームが英語化できます。さらに、コントローラやテンプレートにある日本語を全てtメソッドの呼び出しに変え、ロケールテキストにそのごくを日本語や英語で記述すれば、サイトが２言語対応になります。
