@@ -111,3 +111,122 @@ testメソッドのブロックにコードを記述すると、それがテス�
 testメソッドのブロックではアサーションメソッドでテストを行います。アサーションとは、ある条件が成立しているかどうかチェックすることです。アサーションメソッドは、チェックに失敗すると警告を表示して、そのtestメソッドの実行を中断します。
 
 assert trueのassertメソッドは、基本的なアサーションメソッドで、引数が真になるかどうかチェックします。引数がtrueなので、このテストは常に成功します。試しに、わざと条件が間違いになるようにして見ましょう。
+
+
+
+Failureと表示されたので、このテストは失敗したことがわかります。テスト自体のバグや、モデルやコントローラ、テンプレートのバグで例外が発生した時は、Errorと表示されます。
+assertの他にアサーション用のメソッドは何種類も用意されていますが、どれも引数の最後に文字列でメッセージを指定できます。
+
+assertの他によく使われるアサーションメソッドには次のようなものがあります。
+
+
+メソッド名に含まれるassertをrefuteに変えると、反対の意味になります。つまり、「〇〇出ないなら」成功します。
+
+refute　false
+refute_equal 1, 2
+
+この他に、スクリプトが特定の例外を発生させるかどうかを調べるassert_raisesメソッドもあります。assert_raisesメソッドの引数には礼儀クラスを指定し、例外を起こすメソッドをブロックに記述します。
+
+assert_raises(ActiveRecord::RecordNotFound) { Member.find(100) }
+
+Railsのテストは、Gemパッケージのminitestを利用した機能です。MinitestはRubyをインストールすると一緒にインストールされます。上記のアサーションメソッドは、RailsのものではなくMinitest::Assertionsモジュールに標準的に用意されているものです。ですから、Railsだけでなく一般的なRubyプログラムでもテストを行うことができます。
+なお、assert_responseなどのコントローラ用のアサーションメソッドは、Railsの機能として追加されているものです。
+
+Factory Girl
+
+テスト用データの準備
+モデルやコントローラのテストをするには、テスト用のデータを簡単に用意できるしくみが必要です。Railsのテストでは、デフォルトでYAML形式のフィクスチャファイルを使います。本書では、テスト用のデータを楽に記述できるように、フィクスチャファイルではなくFactory Girlというライブラリを使います。
+Factory GirlはGemパッケージとしてインストールできます。Gemfileの一番下に、「group:test do ~ end」というブロックを作り、その中にfactory_girl_railsを指定してください。
+
+group :test do
+    gem 'factory_girl_rails', '~> 4.4.0'
+end
+
+Bundler install
+
+testフォルダの下にfactoriesという名前のフォルダを作成してください。このフォルダ下にFactory Girl用のスクリプトを置きます。
+Factory Girl用のスクリプトは、次の書式で書きます。「factory :モデル名 do ~ end」
+のブロックにモデルの属性名と同名のメソッドを並べ、引数にテスト用の値を指定します。
+
+FactoryGirl.define do
+    factory :モデル名 do
+    属性名　値
+
+
+  end
+end
+
+Memberモデルのnumberやnameのように、重複を禁止している属性では、「属性名　値」の代わりにsequenceメソッドを使うと便利です。sequenceメソッドを使うと、Factory Girlでテストデータを作るたびに、Taro1,Taro2のような連番のデータを用意できます。
+
+sequence( :属性名 ) { |n| nを使った式 }
+
+それでは、Memeberモデルのテスト用データを作りましょう。
+
+gender(性別)とadministrator(管理者)は指定していません。この2つはマイグレーションスクリプトでデフォルト値を設定しているので、自動的にそれぞれ0とfalseになります。
+
+member1:
+    number: 1
+    name: Taro
+    full_name: "Yamada Taro"
+    email: "taro1@example.com"
+    birthday: <%= 30.years.ago.strftime("%Y-%m-%d")%>
+
+単純なテーブルを使うアプリケーションではフィクスチャファイルで十分です。
+
+テスト用データの利用
+Factory Girl用のファイルを作成したら、テストスクリプトの中でデータの入ったモデルオブジェクトを簡単に作成できるようになります。保存済みのモデルオブジェクトを使うには、以下のように記述します。
+
+member = FactoryGirl.create(:member)
+
+データが入っていれば保存はされていないモデルオブジェクトは、次のように取り出します。
+
+member = FactoryGirl.build(:member)
+
+モデルオブジェクトの属性に特定の値を設定したい時は、引数に「属性名: 値」のハッシュを加えます。
+
+member = FactoryGirl.create(:member, number: 99, name: "Jiro")
+attributes_forメソッドを使うと、FactoryGirlのスクリプトを基にしたハッシュを用意できます。
+
+attires = FactoryGirl.attributes_for(:member)
+
+test/modelsフォルダのmember_test.rbにtestメソッドを追加。先ほどの"the truth"のテスト削除してください
+
+ターミナルに値を表示する
+テストスクリプトやモデル、コントローラのコードの中でputsメソッドやpメソッドを使えば、テストの実行中にターミナルに変数の値を表示できます。いわゆるprintfデバッグというもので、スマートな方法ではありませんが、役に立つこともあります。
+
+member = FactoryGirl.create(:member)
+p member.full_name
+
+モデルのテスト
+ここでは、モデルをテストする方法を紹介しながら、記事テーブルを扱うArticleモデルを開発していきます。
+
+Articleモデルの作成
+Moring Gloryの記事モデルを作っていきますよ。
+記事を収めるテーブル名はarticles,対応するモデル名はArticleとします。テスト駆動開発によって、データベースから記事を取り出したり、記事を保存したり、サイトに表示したりする機能を加えることにしましょう。
+先にconfig/routes.rbで、記事をリソースとして扱うルーティングを追加して置きましょう。
+
+掲載開始日時(released_at)は、その日時になるまで記事をサイトに表示しない、というものです。掲載終了日時(expired_at)は、その日時がすぎたら記事をサイトに表示しない、というものです。後ほどArticlesモデルのクラスには、二漬けを調べて必要な記事を取り出す機能を加え、テストで確認することにします。
+また、掲載開始日時は必須ですが、掲載終了日時は空(NULL)でも許容しています。
+会員のみ閲覧できるフラグ(member_only)
+ マイグレーションを実行して、データベースにarticlesテーブルを追加しましょう。
+
+ブラウザで確認する開発モードのシードデータも用意して置きましょう。
+
+バリデーションのテスト
+モデルのテストをおこないながらバリデーションの機能をArticleモデルに加えましょう。
+
+値のテスト
+テストスクリプトでbリデーションをテストするにはは、モデルオブジェクトのvalid?メソッドやinvalid?メソッドを使います。valid?メソッドは、エラーが起きた時はfalse、起きない時はtrueを返します。
+
+assert article.invalid?
+
+#エラーになることを確認
+assert article.invalid?
+# tilteでエラーが起きることを確認
+assert article.errors.include?(:title)
+
+では実際に、テスト駆動開発の手法でバリデーションのコードを書いてみましょう。Articleモデルでは、タイトル(title),本文(body)、本文,掲載開始日時(released_at)で空の値を禁止することにします。
+test/modelsフォルダにテストスクリプトarticle_test.rbを作成
+
+
+newで作成したモデルオブジェクトには何も入っていないので、<assert article.invalid?>や[assert article.errors.include?(:title)]は成功すべきです。

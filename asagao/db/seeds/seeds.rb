@@ -1,0 +1,1 @@
+table_names = %w(members articles)
